@@ -92,3 +92,26 @@ async def ws_live(ws: WebSocket):
         while True: await ws.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(ws)
+
+@app.post("/setup")
+def setup():
+    try:
+        conn = get_db(); cur = conn.cursor()
+        cur.execute("""
+CREATE TABLE IF NOT EXISTS flight_data (
+    ts TIMESTAMPTZ NOT NULL,
+    aircraft_id TEXT NOT NULL,
+    club_id TEXT NOT NULL,
+    lat DOUBLE PRECISION, lon DOUBLE PRECISION,
+    alt_m REAL, spd_kt REAL, hdg REAL,
+    ax REAL, ay REAL, az REAL,
+    gx REAL, gy REAL, gz REAL,
+    pres_hpa REAL, temp_c REAL,
+    rpm REAL, co_ppm REAL,
+    flarm_rx SMALLINT, adsb_rx SMALLINT,
+    rssi_dbm SMALLINT, lte_ok BOOLEAN, seq INTEGER
+)""")
+        cur.close(); conn.close()
+        return {"status": "table créée"}
+    except Exception as e:
+        return {"error": str(e)}
