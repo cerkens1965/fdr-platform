@@ -4,16 +4,18 @@ import psycopg2
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
-DB = dict(
-    host=os.getenv("DB_HOST","localhost"),
-    port=int(os.getenv("DB_PORT","5432")),
-    dbname=os.getenv("DB_NAME","fdr_platform"),
-    user=os.getenv("DB_USER","fdr_user"),
-    password=os.getenv("DB_PASS","fdr_secret")
-)
-
 def get_db():
-    conn = psycopg2.connect(**DB)
+    url = os.getenv("DATABASE_URL")
+    if url:
+        conn = psycopg2.connect(url, sslmode='require')
+    else:
+        conn = psycopg2.connect(
+            host=os.getenv("DB_HOST","localhost"),
+            port=int(os.getenv("DB_PORT","5432")),
+            dbname=os.getenv("DB_NAME","fdr_platform"),
+            user=os.getenv("DB_USER","fdr_user"),
+            password=os.getenv("DB_PASS","fdr_secret")
+        )
     conn.autocommit = True
     return conn
 
@@ -46,7 +48,7 @@ def start_mqtt():
         client.loop_start()
         print(f"✅ MQTT connecté {host}:{port}")
     except Exception as e:
-        print(f"⚠️ MQTT non disponible: {e} — API continue sans live")
+        print(f"⚠️ MQTT non disponible: {e}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -65,40 +67,6 @@ def stats():
     try:
         conn = get_db(); cur = conn.cursor()
         cur.execute("""
-            SELECT aircraft_id, count(*) AS total_frames,
-            min(ts) AS first_seen, max(ts) AS last_seen,
-            max(alt_m) AS alt_max, max(spd_kt) AS spd_max,
-            max(az) AS g_max, avg(co_ppm) AS co_avg,
-            count(*) FILTER (WHERE lte_ok=false) AS lte_dropouts
-            FROM flight_data GROUP BY aircraft_id
-        """)
-        rows = cur.fetchall()
-        cols = [d[0] for d in cur.description]
-        cur.close(); conn.close()
-        return [dict(zip(cols,r)) for r in rows]
-    except Exception as e:
-        return {"error": str(e)}
+            SELECT aircraft​​​​​​​​​​​​​​​​
 
-@app.get("/flights/track/{aircraft_id}")
-def track(aircraft_id: str, limit: int=500):
-    try:
-        conn = get_db(); cur = conn.cursor()
-        cur.execute("""
-            SELECT ts,lat,lon,alt_m,spd_kt,az,co_ppm,rssi_dbm,lte_ok
-            FROM flight_data WHERE aircraft_id=%s
-            ORDER BY ts DESC LIMIT %s
-        """, (aircraft_id, limit))
-        rows = cur.fetchall()
-        cols = [d[0] for d in cur.description]
-        cur.close(); conn.close()
-        return [dict(zip(cols,r)) for r in rows]
-    except Exception as e:
-        return {"error": str(e)}
-
-@app.websocket("/ws/live")
-async def ws_live(ws: WebSocket):
-    await manager.connect(ws)
-    try:
-        while True: await ws.receive_text()
-    except WebSocketDisconnect:
-        manager.disconnect(ws)
+eof
