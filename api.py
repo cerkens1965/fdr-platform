@@ -115,3 +115,16 @@ CREATE TABLE IF NOT EXISTS flight_data (
         return {"status": "table créée"}
     except Exception as e:
         return {"error": str(e)}
+@app.post("/ingest")
+def ingest(data: dict):
+    try:
+        conn = get_db(); cur = conn.cursor()
+        cur.execute("""
+INSERT INTO flight_data 
+(ts,aircraft_id,club_id,lat,lon,alt_m,spd_kt,hdg,ax,ay,az,gx,gy,gz,pres_hpa,temp_c,rpm,co_ppm,flarm_rx,adsb_rx,rssi_dbm,lte_ok,seq)
+VALUES (%(ts)s,%(aircraft_id)s,%(club_id)s,%(lat)s,%(lon)s,%(alt_m)s,%(spd_kt)s,%(hdg)s,%(ax)s,%(ay)s,%(az)s,%(gx)s,%(gy)s,%(gz)s,%(pres_hpa)s,%(temp_c)s,%(rpm)s,%(co_ppm)s,%(flarm_rx)s,%(adsb_rx)s,%(rssi_dbm)s,%(lte_ok)s,%(seq)s)
+        """, data)
+        cur.close(); conn.close()
+        return {"status": "ok"}
+    except Exception as e:
+        return {"error": str(e)}
