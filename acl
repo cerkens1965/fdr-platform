@@ -1,0 +1,33 @@
+# ─────────────────────────────────────────────
+# acl — Access Control List Mosquitto
+# ─────────────────────────────────────────────
+# Règle : chaque boîtier ne publie QUE sur son topic
+# Le backend (fdr_backend) subscribe à tout
+
+# ── Backend — accès total en lecture ──────────
+user fdr_backend
+topic read flight/#
+topic read $SYS/#
+
+# ── Dashboard web — lecture seule ─────────────
+user fdr_dashboard
+topic read flight/#
+
+# ── Boîtier F-ABCD (club_toulouse_01) ─────────
+# Peut publier UNIQUEMENT sur ses propres topics
+user fdr_device
+topic write flight/club_toulouse_01/F-ABCD/telemetry
+topic write flight/club_toulouse_01/F-ABCD/alert
+topic write flight/club_toulouse_01/F-ABCD/status
+
+# ── Simulateur (mêmes droits que le boîtier) ──
+user fdr_simulator
+topic write flight/club_toulouse_01/F-ABCD/telemetry
+topic write flight/club_toulouse_01/F-ABCD/alert
+topic write flight/club_toulouse_01/F-ABCD/status
+
+# ── Ajouter un boîtier supplémentaire : ───────
+# user fdr_device_F-WXYZ
+# topic write flight/club_toulouse_01/F-WXYZ/telemetry
+# topic write flight/club_toulouse_01/F-WXYZ/alert
+# topic write flight/club_toulouse_01/F-WXYZ/status

@@ -1,0 +1,78 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────
+# Stack de développement locale — FDR Platform
+# Lance : docker compose up -d
+# ─────────────────────────────────────────────
+
+services:
+
+  # ── MQTT Broker ───────────────────────────
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: fdr_mosquitto
+    ports:
+      - "1883:1883"     # MQTT
+      - "9001:9001"     # WebSocket (pour dashboard browser)
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./acl:/mosquitto/config/acl
+      - ./passwd:/mosquitto/config/passwd
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mosquitto_pub", "-h", "localhost", "-t", "test", "-m", "ping", "-u", "fdr_backend", "-P", "backend_secret"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── TimescaleDB ───────────────────────────
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: fdr_timescaledb
+    environment:
+      POSTGRES_DB:       fdr_platform
+      POSTGRES_USER:     fdr_user
+      POSTGRES_PASSWORD: fdr_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fdr_user -d fdr_platform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ─────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: fdr_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── MQTT Explorer (UI de debug) ───────────
+  # Accès : http://localhost:4000
+  mqtt-explorer:
+    image: smeagolworms4/mqtt-explorer
+    container_name: fdr_mqtt_explorer
+    ports:
+      - "4000:4000"
+    restart: unless-stopped
+
+volumes:
+  mosquitto_data:
+  mosquitto_log:
+  timescale_data:
+  redis_data:
