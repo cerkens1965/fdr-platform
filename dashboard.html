@@ -1,1 +1,317 @@
+<!DOCTYPE html>
 
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FDR Platform</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: monospace; background:#f0f4f8; height:100vh; overflow:hidden; display:flex; flex-direction:column; }
+header { background:#fff; border-bottom:1px solid #cbd5e0; padding:10px 16px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+.logo { font-size:16px; font-weight:900; letter-spacing:3px; color:#0055aa; }
+.pills { display:flex; gap:8px; align-items:center; }
+.pill { padding:4px 10px; border:1px solid #cbd5e0; font-size:10px; letter-spacing:1px; background:#e8eef5; border-radius:2px; }
+.pill.live { border-color:#1a8a00; color:#1a8a00; }
+.pill.warn { border-color:#b38000; color:#b38000; }
+.layout { display:grid; grid-template-columns:260px 1fr; flex:1; overflow:hidden; }
+.left { background:#fff; border-right:1px solid #cbd5e0; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:12px; }
+.sec-title { font-size:9px; letter-spacing:3px; color:#7a92a8; text-transform:uppercase; margin-bottom:8px; border-left:3px solid #0055aa; padding-left:7px; }
+.mgrid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.mc { background:#e8eef5; border:1px solid #cbd5e0; border-left:3px solid #0055aa; padding:8px 10px; }
+.mc.w { border-left-color:#b38000; } .mc.r { border-left-color:#cc1133; } .mc.o { border-left-color:#e05a1a; }
+.mc-l { font-size:8px; letter-spacing:2px; color:#7a92a8; }
+.mc-v { font-size:18px; color:#0055aa; } .mc.w .mc-v{color:#b38000;} .mc.r .mc-v{color:#cc1133;} .mc.o .mc-v{color:#e05a1a;}
+.mc-u { font-size:10px; color:#7a92a8; }
+.lrow { margin-bottom:7px; }
+.llbl { display:flex; justify-content:space-between; font-size:9px; color:#7a92a8; margin-bottom:3px; }
+.ltrk { height:4px; background:#cbd5e0; border-radius:1px; overflow:hidden; }
+.lfil { height:100%; border-radius:1px; }
+.lg{background:#1a8a00;} .lw{background:#b38000;} .lr{background:#cc1133;}
+.cmp { width:100%; border-collapse:collapse; font-size:9px; }
+.cmp th { text-align:left; padding:4px 6px; color:#7a92a8; border-bottom:1px solid #cbd5e0; font-weight:400; }
+.cmp th.fh{color:#0055aa;} .cmp th.ih{color:#e05a1a;}
+.cmp td { padding:5px 6px; border-bottom:1px solid #e8eef5; }
+.fv{color:#0055aa;} .iv{color:#e05a1a;}
+.win::after{content:' ▲';font-size:7px;}
+.map-wrap { display:flex; flex-direction:column; overflow:hidden; }
+.tb { display:flex; gap:6px; padding:7px 12px; background:#fff; border-bottom:1px solid #cbd5e0; flex-wrap:wrap; }
+.tbb { padding:3px 10px; background:#e8eef5; border:1px solid #cbd5e0; color:#7a92a8; font-size:9px; letter-spacing:1px; cursor:pointer; text-transform:uppercase; }
+.tbb.on{border-color:#0055aa;color:#0055aa;background:rgba(0,85,170,.07);}
+.tbb.on2{border-color:#e05a1a;color:#e05a1a;background:rgba(224,90,26,.07);}
+#map { flex:1; }
+.ov { position:absolute; z-index:500; background:rgba(255,255,255,.95); border:1px solid #cbd5e0; padding:9px 12px; box-shadow:0 2px 8px rgba(0,0,0,.1); pointer-events:none; font-size:10px; }
+.pos-ov { top:12px; right:12px; min-width:150px; }
+.ovr { display:flex; justify-content:space-between; gap:12px; padding:2px 0; }
+.ovk{color:#7a92a8;} .ovv{color:#1a2530;}
+.ovv.g{color:#1a8a00;font-weight:bold;} .ovv.w{color:#b38000;font-weight:bold;} .ovv.b{color:#cc1133;font-weight:bold;}
+.ovdiv{border-top:1px solid #cbd5e0;margin:4px 0;padding-top:4px;}
+.leg-ov{bottom:28px;left:12px;display:flex;gap:12px;align-items:center;}
+.legi{display:flex;align-items:center;gap:5px;font-size:8px;color:#7a92a8;}
+.legdot{width:8px;height:8px;border-radius:50%;}
+.legline{width:18px;height:3px;border-radius:1px;}
+.status-bar{background:#0055aa;color:white;font-size:9px;letter-spacing:2px;padding:4px 16px;text-align:center;flex-shrink:0;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">✈ FDR PLATFORM</div>
+  <div class="pills">
+    <div class="pill warn" id="apiPill">API...</div>
+    <div class="pill" id="wsPill">WS...</div>
+    <div class="pill" id="ptPill">— pts</div>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="left">
+    <div>
+      <div class="sec-title">Métriques vol</div>
+      <div class="mgrid">
+        <div class="mc"><div class="mc-l">ALT MAX</div><div class="mc-v" id="mAlt">—<span class="mc-u">m</span></div></div>
+        <div class="mc"><div class="mc-l">VIT MAX</div><div class="mc-v" id="mSpd">—<span class="mc-u">kt</span></div></div>
+        <div class="mc w"><div class="mc-l">G MAX</div><div class="mc-v" id="mG">—<span class="mc-u">G</span></div></div>
+        <div class="mc r"><div class="mc-l">CO MOY</div><div class="mc-v" id="mCo">—<span class="mc-u">ppm</span></div></div>
+      </div>
+    </div>
+
+```
+<div>
+  <div class="sec-title">Qualité LTE</div>
+  <div class="lrow"><div class="llbl"><span>RSSI moyen</span><span id="lRssi" style="color:#1a8a00">—</span></div><div class="ltrk"><div class="lfil lg" id="lRssiBar" style="width:0%"></div></div></div>
+  <div class="lrow"><div class="llbl"><span>Disponibilité</span><span id="lAvail" style="color:#b38000">—</span></div><div class="ltrk"><div class="lfil lw" id="lAvailBar" style="width:0%"></div></div></div>
+  <div class="lrow"><div class="llbl"><span>Trames perdues</span><span id="lDrop" style="color:#cc1133">—</span></div><div class="ltrk"><div class="lfil lr" id="lDropBar" style="width:0%"></div></div></div>
+</div>
+
+<div>
+  <div class="sec-title">Stats appareil</div>
+  <table class="cmp">
+    <thead><tr><th>Paramètre</th><th class="fh">Valeur</th></tr></thead>
+    <tbody id="statsBody"><tr><td colspan="2" style="color:#7a92a8;padding:8px">Chargement...</td></tr></tbody>
+  </table>
+</div>
+
+<div>
+  <div class="sec-title">Couleur trace</div>
+  <div style="display:flex;gap:5px;flex-wrap:wrap;">
+    <button class="tbb on" id="bSig" onclick="setMode('sig')">SIGNAL</button>
+    <button class="tbb" id="bAlt" onclick="setMode('alt')">ALTITUDE</button>
+    <button class="tbb" id="bSpd" onclick="setMode('spd')">VITESSE</button>
+  </div>
+</div>
+```
+
+  </div>
+
+  <div class="map-wrap">
+    <div class="tb">
+      <button class="tbb on" id="bFDR" onclick="toggleFDR()">◉ FDR</button>
+      <button class="tbb" onclick="recenter()">⊙ RECENTRER</button>
+      <span style="font-size:9px;color:#7a92a8;margin-left:auto" id="tbInfo">Connexion API...</span>
+    </div>
+    <div style="position:relative;flex:1;overflow:hidden;">
+      <div id="map" style="width:100%;height:100%;"></div>
+      <div class="ov pos-ov">
+        <div class="ovr"><span class="ovk">LAT</span><span class="ovv" id="oLat">—</span></div>
+        <div class="ovr"><span class="ovk">LON</span><span class="ovv" id="oLon">—</span></div>
+        <div class="ovr"><span class="ovk">ALT</span><span class="ovv" id="oAlt">—</span></div>
+        <div class="ovr"><span class="ovk">SPD</span><span class="ovv" id="oSpd">—</span></div>
+        <div class="ovdiv">
+          <div class="ovr"><span class="ovk">LTE</span><span class="ovv" id="oLte">—</span></div>
+          <div class="ovr"><span class="ovk">RSSI</span><span class="ovv" id="oRssi">—</span></div>
+        </div>
+      </div>
+      <div class="ov leg-ov">
+        <div class="legi"><div class="legdot" style="background:#1a8a00"></div>GOOD</div>
+        <div class="legi"><div class="legdot" style="background:#b38000"></div>FAIR</div>
+        <div class="legi"><div class="legdot" style="background:#cc1133"></div>NO LTE</div>
+        <div style="width:1px;height:12px;background:#cbd5e0"></div>
+        <div class="legi"><div class="legline" style="background:#0055aa"></div>FDR</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="status-bar" id="statusBar">CONNEXION API EN COURS...</div>
+
+<script>
+const API = 'https://expert-space-doodle-vpvp7j999gg63x94r-8000.app.github.dev';
+const WS  = API.replace('https','wss') + '/ws/live';
+
+let fdr=[], mode='sig', showF=true, lines=[], marker=null;
+
+// ── MAP ───────────────────────────────────────
+const map = L.map('map');
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  attribution:'© OpenStreetMap', maxZoom:19
+}).addTo(map);
+
+// OpenAIP
+L.tileLayer(
+  'https://a.api.tiles.openaip.net/api/data/openaip/{z}/{x}/{y}.png?apiKey=ac134ca9a623587f3c387dab1b9e3d0e',
+  {opacity:.9, maxZoom:17, minZoom:7, zIndex:10, attribution:'© OpenAIP'}
+).addTo(map);
+
+map.setView([43.589, 1.499], 10);
+
+// ── COLOURS ───────────────────────────────────
+function sigC(r){ if(!r)return'#cc1133'; if(r>-75)return'#1a8a00'; if(r>-90)return'#b38000'; return'#cc1133'; }
+function altC(a){ const t=Math.min(1,a/1400); return`hsl(${200-t*140},75%,38%)`; }
+function spdC(s){ const t=Math.min(1,(s-60)/80); return`hsl(${140-t*140},70%,38%)`; }
+function col(pt){ if(mode==='sig')return sigC(pt.rssi); if(mode==='alt')return altC(pt.alt); return spdC(pt.spd); }
+
+// ── BUILD TRACK ───────────────────────────────
+function build(){
+  lines.forEach(l=>map.removeLayer(l)); lines=[];
+  if(marker){map.removeLayer(marker);marker=null;}
+  if(!fdr.length||!showF) return;
+  for(let i=1;i<fdr.length;i++){
+    const p=fdr[i],pp=fdr[i-1];
+    lines.push(L.polyline([[pp.lat,pp.lon],[p.lat,p.lon]],{color:col(p),weight:3.5,opacity:.95}).addTo(map));
+  }
+  if(fdr.length>1){
+    L.circleMarker([fdr[0].lat,fdr[0].lon],{radius:6,color:'#0055aa',fillColor:'#0055aa',fillOpacity:1}).bindTooltip('DÉPART').addTo(map);
+  }
+  const last=fdr[fdr.length-1];
+  marker=L.circleMarker([last.lat,last.lon],{radius:9,color:'#0055aa',fillColor:'#0055aa',fillOpacity:1}).addTo(map);
+  updateOverlay(last);
+}
+
+function updateOverlay(p){
+  document.getElementById('oLat').textContent=p.lat.toFixed(4)+'°';
+  document.getElementById('oLon').textContent=p.lon.toFixed(4)+'°';
+  document.getElementById('oAlt').textContent=p.alt+'m';
+  document.getElementById('oSpd').textContent=p.spd+'kt';
+  const el=document.getElementById('oLte');
+  if(!p.ok){el.textContent='NO LTE';el.className='ovv b';}
+  else if(p.rssi>-75){el.textContent='GOOD';el.className='ovv g';}
+  else if(p.rssi>-90){el.textContent='FAIR';el.className='ovv w';}
+  else{el.textContent='POOR';el.className='ovv b';}
+  document.getElementById('oRssi').textContent=p.rssi?p.rssi+'dBm':'—';
+}
+
+function fitBounds(){
+  if(fdr.length<2)return;
+  map.fitBounds([[Math.min(...fdr.map(p=>p.lat))-.01,Math.min(...fdr.map(p=>p.lon))-.02],
+                 [Math.max(...fdr.map(p=>p.lat))+.01,Math.max(...fdr.map(p=>p.lon))+.02]]);
+}
+
+// ── CONTROLS ──────────────────────────────────
+function toggleFDR(){showF=!showF;document.getElementById('bFDR').className=showF?'tbb on':'tbb';build();}
+function recenter(){fitBounds();}
+function setMode(m){
+  mode=m;
+  ['bSig','bAlt','bSpd'].forEach(id=>document.getElementById(id).className='tbb');
+  document.getElementById({sig:'bSig',alt:'bAlt',spd:'bSpd'}[m]).className='tbb on';
+  build();
+}
+
+// ── API ───────────────────────────────────────
+async function loadStats(){
+  try{
+    const r=await fetch(API+'/flights/stats');
+    const d=await r.json();
+    if(!d.length)return;
+    const f=d[0];
+    document.getElementById('mAlt').innerHTML=Math.round(f.alt_max)+'<span class="mc-u">m</span>';
+    document.getElementById('mSpd').innerHTML=Math.round(f.spd_max)+'<span class="mc-u">kt</span>';
+    document.getElementById('mG').innerHTML=f.g_max.toFixed(2)+'<span class="mc-u">G</span>';
+    document.getElementById('mCo').innerHTML=f.co_avg.toFixed(1)+'<span class="mc-u">ppm</span>';
+    document.getElementById('ptPill').textContent=f.total_frames+' pts';
+
+    // LTE stats
+    const dropPct=Math.round(f.lte_dropouts/f.total_frames*100)||0;
+    const availPct=100-dropPct;
+    document.getElementById('lAvail').textContent=availPct+'%';
+    document.getElementById('lAvailBar').style.width=availPct+'%';
+    document.getElementById('lDrop').textContent=f.lte_dropouts;
+    document.getElementById('lDropBar').style.width=Math.min(100,dropPct*3)+'%';
+
+    // Stats table
+    const d1=new Date(f.first_seen).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    const d2=new Date(f.last_seen).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('statsBody').innerHTML=`
+      <tr><td>Appareil</td><td class="fv">${f.aircraft_id}</td></tr>
+      <tr><td>Début</td><td class="fv">${d1}</td></tr>
+      <tr><td>Fin</td><td class="fv">${d2}</td></tr>
+      <tr><td>Trames</td><td class="fv">${f.total_frames}</td></tr>
+      <tr><td>Dropouts LTE</td><td class="fv">${f.lte_dropouts}</td></tr>
+    `;
+    document.getElementById('apiPill').textContent='API ✓';
+    document.getElementById('apiPill').className='pill live';
+    document.getElementById('statusBar').textContent='API CONNECTÉE — DONNÉES RÉELLES F-ABCD';
+    return true;
+  }catch(e){
+    document.getElementById('apiPill').textContent='API OFF';
+    document.getElementById('statusBar').textContent='API HORS LIGNE — Vérifiez le Codespace';
+    document.getElementById('tbInfo').textContent='API non disponible';
+    return false;
+  }
+}
+
+async function loadTrack(){
+  try{
+    const r=await fetch(API+'/flights/track/F-ABCD?limit=600');
+    const d=await r.json();
+    if(!d.length)return;
+    fdr=d.reverse().map((p,i)=>({i,lat:p.lat,lon:p.lon,alt:Math.round(p.alt_m),spd:Math.round(p.spd_kt),rssi:p.rssi_dbm,ok:p.lte_ok}));
+
+    // RSSI avg
+    const rssiVals=fdr.filter(p=>p.rssi).map(p=>p.rssi);
+    if(rssiVals.length){
+      const avg=Math.round(rssiVals.reduce((a,b)=>a+b,0)/rssiVals.length);
+      document.getElementById('lRssi').textContent=avg+'dBm';
+      const pct=Math.round((avg+120)/70*100);
+      document.getElementById('lRssiBar').style.width=Math.max(0,Math.min(100,pct))+'%';
+    }
+
+    build(); fitBounds();
+    document.getElementById('tbInfo').textContent=fdr.length+' points chargés';
+  }catch(e){console.warn('Track error',e);}
+}
+
+// ── WEBSOCKET LIVE ────────────────────────────
+function connectWS(){
+  try{
+    const ws=new WebSocket(WS);
+    ws.onopen=()=>{
+      document.getElementById('wsPill').textContent='LIVE ✓';
+      document.getElementById('wsPill').className='pill live';
+    };
+    ws.onmessage=(e)=>{
+      const p=JSON.parse(e.data);
+      fdr.push({i:fdr.length,lat:p.lat,lon:p.lon,alt:Math.round(p.alt_m),spd:Math.round(p.spd_kt),rssi:p.rssi_dbm,ok:p.lte_ok});
+      if(fdr.length>1000)fdr.shift();
+      if(marker){map.removeLayer(marker);marker=null;}
+      const last=fdr[fdr.length-1];
+      marker=L.circleMarker([last.lat,last.lon],{radius:9,color:'#0055aa',fillColor:'#0055aa',fillOpacity:1}).addTo(map);
+      updateOverlay(last);
+      // Extend track line
+      if(fdr.length>1){
+        const pp=fdr[fdr.length-2];
+        lines.push(L.polyline([[pp.lat,pp.lon],[last.lat,last.lon]],{color:col(last),weight:3.5,opacity:.95}).addTo(map));
+      }
+      document.getElementById('ptPill').textContent=fdr.length+' pts LIVE';
+    };
+    ws.onclose=()=>{
+      document.getElementById('wsPill').textContent='WS OFF';
+      setTimeout(connectWS,5000);
+    };
+  }catch(e){console.warn('WS error',e);}
+}
+
+// ── BOOT ──────────────────────────────────────
+(async()=>{
+  const ok=await loadStats();
+  if(ok){
+    await loadTrack();
+    connectWS();
+  }
+})();
+</script>
+
+</body>
+</html>
